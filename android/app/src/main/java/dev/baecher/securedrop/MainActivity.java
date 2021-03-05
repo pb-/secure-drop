@@ -77,9 +77,9 @@ public class MainActivity extends AppCompatActivity {
     public void processMany(ArrayList<Uri> uris) throws InvalidAlgorithmParameterException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeySpecException, ShortBufferException {
         Log.i("process", "got " + uris.size() + " URI(s)");
         final int bufferSize = 1 << 20;
-        final int tagBytes = 16;
-        final int ivBytes = 12;
-        final int chunkPayloadSize = bufferSize - tagBytes - ivBytes;
+        final int tagSize = 16;
+        final int ivSize = 12;
+        final int chunkPayloadSize = bufferSize - tagSize - ivSize;
 
         byte[] buffer = new byte[bufferSize];
 
@@ -96,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
             Cipher cipher = Cipher.getInstance("AES_256/GCM/NoPadding");
 
             byte[] encryptedKey = encryptKey(publicKeyString, encryptionKey.getEncoded());
-            final long chunks = size / chunkPayloadSize + size % chunkPayloadSize > 0 ? 1 : 0;
+            final long chunks = getChunks(chunkPayloadSize, size);
 
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
@@ -113,18 +113,18 @@ public class MainActivity extends AppCompatActivity {
 
                 try (InputStream is = getContentResolver().openInputStream(uri)) {
                     while (true) {
-                        int bytesRead = is.read(buffer, ivBytes, chunkPayloadSize);
+                        int bytesRead = is.read(buffer, ivSize, chunkPayloadSize);
                         if (bytesRead == -1) {
                             break;
                         }
                         totalBytes += bytesRead;
 
                         byte[] iv = computeIv(chunks, chunk);
-                        cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new GCMParameterSpec(8 * tagBytes, iv));
+                        cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new GCMParameterSpec(8 * tagSize, iv));
 
-                        int bytesWritten = cipher.doFinal(buffer, ivBytes, bytesRead, buffer, ivBytes);
-                        System.arraycopy(iv, 0, buffer, 0, ivBytes);
-                        out.write(buffer, 0, ivBytes + bytesWritten);
+                        int bytesWritten = cipher.doFinal(buffer, ivSize, bytesRead, buffer, ivSize);
+                        System.arraycopy(iv, 0, buffer, 0, ivSize);
+                        out.write(buffer, 0, ivSize + bytesWritten);
 
                         chunk++;
                     }
@@ -140,6 +140,10 @@ public class MainActivity extends AppCompatActivity {
                 connection.disconnect();
             }
         }
+    }
+
+    public static long getChunks(int chunkPayloadSize, long size) {
+        return size / chunkPayloadSize + (size % chunkPayloadSize > 0 ? 1 : 0);
     }
 
     public String getFileName(Uri uri) {
