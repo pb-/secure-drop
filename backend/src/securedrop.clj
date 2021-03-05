@@ -9,6 +9,8 @@
            [java.security MessageDigest]))
 
 (def data-directory (System/getenv "DATA_PATH"))
+(def upload-token (System/getenv "UPLOAD_TOKEN"))
+(def download-token (System/getenv "DOWNLOAD_TOKEN"))
 
 (defn blob-path [blob-id]
   (Paths/get data-directory (into-array String ["blobs" blob-id])))
@@ -51,9 +53,19 @@
        :body (input-stream file)}
       (not-found "no such blob"))))
 
+(defn wrap-require-token [handler token]
+  (fn [request]
+    (if (= ((:headers request) "token") token)
+      (handler request)
+      {:status 403
+       :headers {"Content-Type" "text/plain"}
+       :body "nope"})))
+
 (defroutes handler
-  (POST "/api/blob" [] create-blob)
-  (GET ["/api/blob/:id", :id #"[0-9a-f]{40}"] [id] retrieve-blob)
+  (POST "/api/blob" []
+        (wrap-require-token create-blob upload-token))
+  (GET ["/api/blob/:id", :id #"[0-9a-f]{40}"] [id]
+       (wrap-require-token retrieve-blob download-token))
   (not-found "not here"))
 
 (comment
