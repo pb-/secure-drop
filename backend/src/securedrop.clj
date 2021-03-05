@@ -1,6 +1,6 @@
 (ns securedrop
   (:require [ring.adapter.jetty :refer [run-jetty]]
-            [compojure.core :refer [defroutes POST]]
+            [compojure.core :refer [defroutes POST GET]]
             [compojure.route :refer [not-found]]
             [clojure.java.io :refer [output-stream input-stream]]
             [clojure.java.jdbc :as jdbc])
@@ -39,10 +39,21 @@
           path (blob-path blob-id)]
       (move-or-remove (.toPath file) path)
       {:status 201
+       :headers {"Content-type" "text/plain"}
        :body blob-id})))
+
+(defn retrieve-blob [request]
+  (let [blob-id (:id (:params request))
+        file (.toFile (blob-path blob-id))]
+    (if (.exists file)
+      {:status 200
+       :headers {"Content-Type" "application/octet-stream"}
+       :body (input-stream file)}
+      (not-found "no such blob"))))
 
 (defroutes handler
   (POST "/api/blob" [] create-blob)
+  (GET ["/api/blob/:id", :id #"[0-9a-f]{40}"] [id] retrieve-blob)
   (not-found "not here"))
 
 (comment
