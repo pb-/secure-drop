@@ -31,20 +31,12 @@
           result))) {} ds))
 
 (defn ^:private resolve-ids [ds ids]
-  (try
+  (if-let [bad-id (first (for [[_ _ v] ds :when (and (int? v) (nil? (ids v)))] v))]
+    [(format "unknown temp-id reference %d" bad-id) nil]
     [nil
      (mapv
        (fn [[entity attribute value]]
-         [(ids entity)
-          attribute
-          (if (int? value)
-            (if-let [resolved (ids value)]
-              resolved
-              (throw (Exception. (format "unknown temp-id reference %d" value))))
-            value)
-          ]) ds)]
-    (catch Exception e
-      [(.getMessage e) nil])))
+         [(ids entity) attribute (if (int? value) (ids value) value)]) ds)]))
 
 (defn ^:private insert! [db ds]
   (let [now (/ (System/currentTimeMillis) 1000.)]
