@@ -37,9 +37,10 @@
   (if (neg? b) (+ 256 b) b))
 
 (defn decode-48-bit-int [s]
-  (reduce (fn [n b]
-            (bit-or (bit-shift-left n 8)
-                    (decode-unsigned-byte b))) 0 s))
+  (reduce
+    (fn [n b]
+      (bit-or (bit-shift-left n 8)
+              (decode-unsigned-byte b))) 0 s))
 
 (defn decode-iv [iv-bytes]
   (map decode-48-bit-int (partition (/ iv-size 2) iv-bytes)))
@@ -66,7 +67,6 @@
                      (= total-chunks expected-total-chunks))
                  (= current-chunk expected-chunk))
           (do
-            (println total-chunks current-chunk ciphertext-size)
             (decrypt-block decoded-key iv buffer ciphertext-size)
             (.write out buffer iv-size payload-size))
           (throw (ex-info "bad chunk" {})))
