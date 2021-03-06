@@ -44,6 +44,10 @@
           (wrap-require-token datoms/create upload-token) database-spec))
   (not-found "not here"))
 
+(defn -main []
+  ;; TODO check that data dir is not nil, make subdir, etc.
+  )
+
 (comment
   ; For development use with nrepl
   (do

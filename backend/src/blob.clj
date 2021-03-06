@@ -5,13 +5,13 @@
            [java.nio.file Paths Files CopyOption FileAlreadyExistsException]
            [java.security MessageDigest]))
 
-(defn blob-path [data-directory blob-id]
+(defn ^:private blob-path [data-directory blob-id]
   (str data-directory File/separatorChar "blobs" File/separatorChar blob-id))
 
-(defn bytea->hex [bytea]
+(defn ^:private bytea->hex [bytea]
   (apply str (map (partial format "%02x") bytea)))
 
-(defn move-or-remove [source destination]
+(defn ^:private move-or-remove [source destination]
   (try
     (Files/move source destination (into-array CopyOption []))
     (catch FileAlreadyExistsException e
