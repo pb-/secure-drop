@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.InvalidAlgorithmParameterException;
@@ -33,6 +34,9 @@ import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.ShortBufferException;
 import javax.crypto.spec.GCMParameterSpec;
+
+import dev.baecher.securedrop.data.Datom;
+import dev.baecher.securedrop.data.Datoms;
 
 public class MainActivity extends AppCompatActivity {
     String publicKeyString = "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAm+WJqPxT2zfDqBTpomw7GSoJhC9SaL0d+SxXC6YsTJqkQ9uxqN3ronwcCmp0lFlQIs5DinJBYQ9yyAzr5ytavEV/jr1a1w6BzPjWDOycAEgla8GYiCEXOqyKB9cglxiaaKl4C7dWPsz05anxKgiaQgNJyFuzCOchKEnM/g2gRPHIYVKbK8t52kKgPFcxSGevCERqEbhjEhkiYt7i7rWTucmipUwfHs6bB2NfyrE4e7SHoLGf1xtuDO7wkVcRJU+oZAmF+vbJxqhx7h4JT3a7lvd5lq/IWWQoXlFNaTpR0ekxKNZqab1dCD8ZWGtux9h7VoCOSDliQcTOIyV0ZxPevQ4ZcX5Y3HTZbMuzsXisF18tDyeG8aADO0pUmf/hBmvJlXfe/bdmB/nO5HaO9oYsuy4/jNlYU8650QKbtyVoI9VTj2DMFoFBKyS2S908IY03/J9jgchQsaCby8mMCbJYxgIZYct6az3QA1IXvX5REhraFEYDKxFtW1Kt7osqTFKERA7Tl+FEpRXsZJzcYSloPzuh/cLIYJ33u3z+BAHk/bEmNMTeHgFzMi80R4k4mOpLAoc4XEh/3TkfpYOBthPg+KBAObHObf8WGJ7ARmnEqWKDdHHxaMFQwFMyyeymJugPshU/jY3MK2Kg0I266qW6VrYbyn+bOAlXc6vNEeSiwMsCAwEAAQ==";
@@ -82,10 +86,13 @@ public class MainActivity extends AppCompatActivity {
         final int chunkPayloadSize = bufferSize - tagSize - ivSize;
 
         byte[] buffer = new byte[bufferSize];
+        Datoms datoms = new Datoms();
+        datoms.add(new Datom(-1, "batch/size", Long.toString(uris.size())));
 
         URL url = new URL("http://10.0.0.20:4711/api/blob");
 
-        for (Uri uri : uris) {
+        for (int uriIndex = 0; uriIndex < uris.size(); uriIndex++) {
+            Uri uri = uris.get(uriIndex);
             Log.i("process", "uri is " + uri.toString());
             String name = getFileName(uri);
             long size = getFileSize(uri);
@@ -135,10 +142,44 @@ public class MainActivity extends AppCompatActivity {
                 Log.i("process", "read/wrote " + totalBytes + " bytes");
 
                 String blobId = new BufferedReader(new InputStreamReader(connection.getInputStream())).readLine();
-                Log.i("process" ,"blob id is " + blobId);
+                Log.i("process", "blob id is " + blobId);
+
+                int entity = -uriIndex - 2;
+                datoms.add(new Datom(entity, "file/encrypted?", "true"));
+                datoms.add(new Datom(entity, "file/name", name));
+                datoms.add(new Datom(entity, "file/size", Long.toString(size)));
+                datoms.add(new Datom(entity, "file/blob-id", blobId));
+                datoms.add(new Datom(entity, "file/batch-id", -1));
             } finally {
                 connection.disconnect();
             }
+        }
+
+        postDatoms("http://10.0.0.20:4711/api/datoms", datoms);
+    }
+
+    public void postDatoms(String endpoint, Datoms datoms) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
+        try {
+            connection.setDoOutput(true);
+            connection.setChunkedStreamingMode(0);
+            connection.setRequestProperty("Content-Type", "application/json");
+            PrintWriter out = new PrintWriter(connection.getOutputStream());
+            datoms.write(out);
+            out.flush();
+            out.close();
+
+            Log.i("post-datoms", "response code " + connection.getResponseCode());
+
+            if (connection.getResponseCode() >= 400) {
+                Log.e("post-datoms", new BufferedReader(new InputStreamReader(connection.getErrorStream())).readLine());
+            } else {
+                InputStream in = connection.getInputStream();
+                while (in.read() != -1) {
+                }
+            }
+        } finally {
+            connection.disconnect();
         }
     }
 
