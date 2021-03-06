@@ -5,7 +5,8 @@
             [clojure.java.io :refer [output-stream input-stream]]
             [clojure.java.jdbc :as jdbc]
             [datoms]
-            [blob]))
+            [blob])
+  (:import [java.io File]))
 
 (def data-directory (System/getenv "DATA_PATH"))
 (def upload-token (System/getenv "UPLOAD_TOKEN"))
