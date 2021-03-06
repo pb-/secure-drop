@@ -4,10 +4,8 @@
             [compojure.route :refer [not-found]]
             [clojure.java.io :refer [output-stream input-stream]]
             [clojure.java.jdbc :as jdbc]
-            [datoms])
-  (:import [java.io File]
-           [java.nio.file Paths Files CopyOption FileAlreadyExistsException]
-           [java.security MessageDigest]))
+            [datoms]
+            [blob]))
 
 (def data-directory (System/getenv "DATA_PATH"))
 (def upload-token (System/getenv "UPLOAD_TOKEN"))
@@ -16,47 +14,6 @@
   {:classname "org.sqlite.JDBC"
    :subprotocol "sqlite"
    :subname (str data-directory File/separatorChar "datoms.db")})
-
-(defn blob-path [blob-id]
-  (Paths/get data-directory (into-array String ["blobs" blob-id])))
-
-(defn bytea->hex [bytea]
-  (apply str (map (partial format "%02x") bytea)))
-
-(defn move-or-remove [source destination]
-  (try
-    (Files/move source destination (into-array CopyOption []))
-    (catch FileAlreadyExistsException e
-      (.delete (.toFile source)))))
-
-(defn create-blob [request]
-  (let [file (File/createTempFile "securedrop-" nil)
-        buffer (byte-array (bit-shift-left 1 20))
-        body (:body request)
-        sha-1 (MessageDigest/getInstance "SHA-1")]
-    (with-open [out (output-stream file)]
-      (loop []
-        (let [bytes-read (.readNBytes body buffer 0 (count buffer))]
-          (when (pos? bytes-read)
-            (.update sha-1 buffer 0 bytes-read)
-            (.write out buffer 0 bytes-read)
-            (recur)))))
-    (let [sha-1-sum (.digest sha-1)
-          blob-id (bytea->hex sha-1-sum)
-          path (blob-path blob-id)]
-      (move-or-remove (.toPath file) path)
-      {:status 201
-       :headers {"Content-type" "text/plain"}
-       :body blob-id})))
-
-(defn retrieve-blob [request]
-  (let [blob-id (:id (:params request))
-        file (.toFile (blob-path blob-id))]
-    (if (.exists file)
-      {:status 200
-       :headers {"Content-Type" "application/octet-stream"}
-       :body (input-stream file)}
-      (not-found "no such blob"))))
 
 (defn wrap-require-token [handler token]
   (fn [request]
@@ -71,11 +28,17 @@
     (jdbc/with-db-connection [db db-spec]
       (handler (assoc request :db db)))))
 
+(defn wrap-data [handler data-dir]
+  (fn [request]
+    (handler (assoc request :data-directory data-dir))))
+
 (defroutes handler
   (POST "/api/blob" []
-        (wrap-require-token create-blob upload-token))
+        (wrap-data
+          (wrap-require-token blob/create upload-token) data-directory))
   (GET ["/api/blob/:id", :id #"[0-9a-f]{40}"] [id]
-       (wrap-require-token retrieve-blob download-token))
+       (wrap-data
+         (wrap-require-token blob/retrieve download-token) data-directory))
   (POST "/api/datoms" []
         (wrap-db-connection
           (wrap-require-token datoms/create upload-token) database-spec))
