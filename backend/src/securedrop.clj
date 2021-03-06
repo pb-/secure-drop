@@ -3,7 +3,8 @@
             [compojure.core :refer [defroutes POST GET]]
             [compojure.route :refer [not-found]]
             [clojure.java.io :refer [output-stream input-stream]]
-            [clojure.java.jdbc :as jdbc])
+            [clojure.java.jdbc :as jdbc]
+            [datoms])
   (:import [java.io File]
            [java.nio.file Paths Files CopyOption FileAlreadyExistsException]
            [java.security MessageDigest]))
@@ -11,6 +12,10 @@
 (def data-directory (System/getenv "DATA_PATH"))
 (def upload-token (System/getenv "UPLOAD_TOKEN"))
 (def download-token (System/getenv "DOWNLOAD_TOKEN"))
+(def database-spec
+  {:classname "org.sqlite.JDBC"
+   :subprotocol "sqlite"
+   :subname (str data-directory File/separatorChar "datoms.db")})
 
 (defn blob-path [blob-id]
   (Paths/get data-directory (into-array String ["blobs" blob-id])))
@@ -61,11 +66,19 @@
        :headers {"Content-Type" "text/plain"}
        :body "nope"})))
 
+(defn wrap-db-connection [handler db-spec]
+  (fn [request]
+    (jdbc/with-db-connection [db db-spec]
+      (handler (assoc request :db db)))))
+
 (defroutes handler
   (POST "/api/blob" []
         (wrap-require-token create-blob upload-token))
   (GET ["/api/blob/:id", :id #"[0-9a-f]{40}"] [id]
        (wrap-require-token retrieve-blob download-token))
+  (POST "/api/datoms" []
+        (wrap-db-connection
+          (wrap-require-token datoms/create upload-token) database-spec))
   (not-found "not here"))
 
 (comment
