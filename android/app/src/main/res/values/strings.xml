@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Secure Drop</string>
+    <string name="configure_drop_zones">Configure drop zones</string>
+    <string name="add_new_drop_zone">Add new drop zone</string>
+    <string name="title_activity_drop_zone_settings">Drop zones</string>
+    <string name="a_drop_zone">A drop zone</string>
 </resources>

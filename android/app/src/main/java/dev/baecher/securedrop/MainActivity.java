@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.work.Data;
@@ -53,5 +54,9 @@ public class MainActivity extends AppCompatActivity {
     private void registerNotificationChannel() {
         getSystemService(NotificationManager.class).createNotificationChannel(
                 UploadWorker.createNotificationChannel());
+    }
+
+    public void onClickDropZones(View view) {
+        startActivity(new Intent(this, DropZonesActivity.class));
     }
 }
