@@ -6,6 +6,7 @@ import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -42,7 +43,7 @@ public class DropZonesActivity extends AppCompatActivity {
             actionBar.setDisplayHomeAsUpEnabled(true);
         }
 
-        dropZonesAdapter = new DropZonesAdapter(getDropZones());
+        dropZonesAdapter = new DropZonesAdapter(getDropZones(this));
         RecyclerView v = findViewById(R.id.dropZonesList);
         v.setAdapter(dropZonesAdapter);
     }
@@ -50,7 +51,7 @@ public class DropZonesActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        dropZonesAdapter.updateDropZones(getDropZones());
+        dropZonesAdapter.updateDropZones(getDropZones(this));
     }
 
     @Override
@@ -62,8 +63,8 @@ public class DropZonesActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    public ArrayList<DropZone> getDropZones() {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+    public static ArrayList<DropZone> getDropZones(Context context) {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         Map<String, ?> entries = prefs.getAll();
         ArrayList<DropZone> dropZones = new ArrayList<>();
         for (String key : entries.keySet()) {
