@@ -83,6 +83,7 @@ public class UploadWorker extends Worker {
         byte[] buffer = new byte[bufferSize];
         Datoms datoms = new Datoms();
         datoms.add(new Datom(-1, "batch/size", Long.toString(uris.size())));
+        datoms.add(new Datom(-1, "batch/uploaded-at", Long.toString(System.currentTimeMillis() / 1000)));
 
         URL url = new URL("http://10.0.0.20:4711/api/blob");
 
