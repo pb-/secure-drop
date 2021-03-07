@@ -5,6 +5,7 @@
             [clojure.java.io :refer [output-stream input-stream]]
             [clojure.java.jdbc :as jdbc]
             [datoms]
+            [entities]
             [blob])
   (:import [java.io File]))
 
@@ -43,6 +44,9 @@
   (POST "/api/datoms" []
         (wrap-db-connection
           (wrap-require-token datoms/create upload-token) database-spec))
+  (GET "/api/entities" []
+       (wrap-db-connection
+         (wrap-require-token entities/retrieve download-token) database-spec))
   (not-found "not here"))
 
 (defn -main []

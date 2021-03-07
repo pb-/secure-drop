@@ -61,5 +61,3 @@
           (bad-request err))))))
 
 (def create (wrap-json-response (wrap-json-body create')))
-
-(defn retrieve [request])
