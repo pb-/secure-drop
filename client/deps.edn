@@ -1,5 +1,7 @@
 {:deps
- {org.clojure/clojure {:mvn/version "1.10.2"}}
+ {org.clojure/clojure {:mvn/version "1.10.2"}
+  clj-http/clj-http {:mvn/version "3.12.0"}
+  cheshire/cheshire {:mvn/version "5.10.0"}}
  :paths ["src"]
  :aliases {:nrepl
            {:extra-deps

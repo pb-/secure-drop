@@ -1,11 +1,13 @@
 (ns securedrop
-  (:require [clojure.java.io :refer [input-stream output-stream]])
+  (:require [clojure.java.io :refer [input-stream output-stream]]
+            [clj-http.client :as http])
   (:import [java.util Base64]
            [java.security KeyFactory]
            [java.security.spec PKCS8EncodedKeySpec]
            [javax.crypto Cipher]
            [javax.crypto.spec GCMParameterSpec]
-           [javax.crypto.spec SecretKeySpec]))
+           [javax.crypto.spec SecretKeySpec]
+           [java.time LocalDateTime ZoneOffset]))
 
 (def rsa-key-size-bits 4096)
 (def rsa-key-size-bytes (bit-shift-right rsa-key-size-bits 3))
@@ -72,6 +74,66 @@
           (throw (ex-info "bad chunk" {})))
         (when (< (inc current-chunk) total-chunks)
           (recur total-chunks (inc current-chunk)))))))
+
+(defn parse-long [s default]
+  (if s
+    (try
+      (Long/parseLong s)
+      (catch NumberFormatException e
+        default))
+    default))
+
+(defn format-size [size]
+  (if (< size 1024)
+    [(str size) "B"]
+    (loop [value size
+           unit "KMGTPE"]
+      (if (< value (* 1024 1024))
+        [(format "%.1f" (/ value 1024.)) (str (first unit) "iB")]
+        (recur (bit-shift-right value 10) (next unit))))))
+
+(defn parse-batch [[id attrs]]
+  {:id id
+   :size (Integer/parseInt (attrs "batch/size"))
+   :uploaded-at (LocalDateTime/ofEpochSecond
+                  (parse-long (attrs "batch/uploaded-at") 0) 0 ZoneOffset/UTC)})
+
+(defn parse-file [[id attrs]]
+  {:id id
+   :blob-id (attrs "file/blob-id")
+   :encrypted? (Boolean/parseBoolean (attrs "file/encrypted?"))
+   :file-name (attrs "file/name")
+   :size (Long/parseLong (attrs "file/size"))})
+
+(defn format-batch [{:keys [id size uploaded-at]}]
+  (format
+    " %s  %-19s  %d file%s" id uploaded-at size (if (> size 1) "s" "")))
+
+(defn format-file [{:keys [size file-name]}]
+  (let [[value unit] (format-size size)]
+    (format " %6s %-3s  %s" value unit file-name)))
+
+(defn retrieve-entities [endpoint download-token params]
+  ((:body
+     (http/get (str endpoint "/entities")
+               {:accept :json
+                :as :json-string-keys
+                :query-params params})) "entities"))
+
+(defn list-batches [endpoint download-token]
+  (retrieve-entities endpoint download-token {:a "batch/size"}))
+
+(defn list-files [endpoint download-token batch-id]
+  (retrieve-entities endpoint download-token {:a "file/batch-id" :v batch-id}))
+
+(comment
+  (map
+    (comp format-batch parse-batch)
+    (list-batches "http://localhost:4711/api" ""))
+
+  (map
+    (comp format-file parse-file)
+    (list-files "http://localhost:4711/api" "" "MMewDSGfkK2")))
 
 (defn -main []
   (with-open [in (input-stream "/tmp/securedrop-4205285819672884081.tmp")
