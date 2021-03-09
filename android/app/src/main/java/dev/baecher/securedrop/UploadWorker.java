@@ -142,6 +142,7 @@ public class UploadWorker extends Worker {
 
                 int entity = -uriIndex - 2;
                 datoms.add(new Datom(entity, "file/encrypted?", "true"));
+                datoms.add(new Datom(entity, "file/ordinal", Integer.toString(uriIndex + 1)));
                 datoms.add(new Datom(entity, "file/name", name));
                 datoms.add(new Datom(entity, "file/size", Long.toString(size)));
                 datoms.add(new Datom(entity, "file/blob-id", blobId));
