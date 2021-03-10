@@ -123,6 +123,21 @@
                 :as :json-string-keys
                 :query-params params})) "entities"))
 
+(defn printerrln [& args]
+  (binding [*out* *err*]
+    (apply println args)))
+
+(defn retrieve-file [{:keys [blob-id file-name]}]
+  (let [response (http/get (str *endpoint* "/blob/" blob-id)
+                           {:as :stream})]
+    (if (= (:status response) 200)
+      (with-open [out (output-stream file-name)]
+        (println "downloading " file-name)
+        (decrypt-stream
+          (decode-secret-key test-secret-key)
+          (:body response) out))
+      (printerrln "HTTP" (:status response) "for" blob-id))))
+
 (defn list-batches []
   (retrieve-entities {:a "batch/size"}))
 
@@ -137,9 +152,8 @@
   (doseq [file (map (comp format-file parse-file) (list-files id))]
     (println file)))
 
-(defn printerrln [& args]
-  (binding [*out* *err*]
-    (apply println args)))
+(defn cli-download-batch [id]
+  (dorun (map (comp retrieve-file parse-file) (list-files id))))
 
 (defn usage []
   (printerrln "Usage: ... batch list")
@@ -156,12 +170,6 @@
                     (case subcommand
                       "list" (cli-list-batches)
                       "show" (cli-show-batch (first args))
+                      "download" (cli-download-batch (first args))
                       (usage)))
           (usage))))))
-
-
-(comment
-  (defn -main []
-    (with-open [in (input-stream "/tmp/securedrop-4205285819672884081.tmp")
-                out (output-stream "/tmp/a.jpg")]
-      (decrypt-stream (decode-secret-key test-secret-key) in out))))
