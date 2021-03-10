@@ -11,6 +11,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
+import androidx.work.Data;
 import androidx.work.ForegroundInfo;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
@@ -46,7 +47,6 @@ import dev.baecher.securedrop.data.Datoms;
 
 public class UploadWorker extends Worker {
     private static String notificationChannelId = "securedrop";
-    String publicKeyString = "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAm+WJqPxT2zfDqBTpomw7GSoJhC9SaL0d+SxXC6YsTJqkQ9uxqN3ronwcCmp0lFlQIs5DinJBYQ9yyAzr5ytavEV/jr1a1w6BzPjWDOycAEgla8GYiCEXOqyKB9cglxiaaKl4C7dWPsz05anxKgiaQgNJyFuzCOchKEnM/g2gRPHIYVKbK8t52kKgPFcxSGevCERqEbhjEhkiYt7i7rWTucmipUwfHs6bB2NfyrE4e7SHoLGf1xtuDO7wkVcRJU+oZAmF+vbJxqhx7h4JT3a7lvd5lq/IWWQoXlFNaTpR0ekxKNZqab1dCD8ZWGtux9h7VoCOSDliQcTOIyV0ZxPevQ4ZcX5Y3HTZbMuzsXisF18tDyeG8aADO0pUmf/hBmvJlXfe/bdmB/nO5HaO9oYsuy4/jNlYU8650QKbtyVoI9VTj2DMFoFBKyS2S908IY03/J9jgchQsaCby8mMCbJYxgIZYct6az3QA1IXvX5REhraFEYDKxFtW1Kt7osqTFKERA7Tl+FEpRXsZJzcYSloPzuh/cLIYJ33u3z+BAHk/bEmNMTeHgFzMi80R4k4mOpLAoc4XEh/3TkfpYOBthPg+KBAObHObf8WGJ7ARmnEqWKDdHHxaMFQwFMyyeymJugPshU/jY3MK2Kg0I266qW6VrYbyn+bOAlXc6vNEeSiwMsCAwEAAQ==";
 
     public UploadWorker(
             @NonNull Context context,
@@ -58,13 +58,22 @@ public class UploadWorker extends Worker {
     @Override
     public Result doWork() {
         ArrayList<Uri> uris = new ArrayList<>();
-        for (String u : getInputData().getStringArray("uris")) {
+        Data input = getInputData();
+        for (String u : input.getStringArray("uris")) {
             uris.add(Uri.parse(u));
         }
 
+        String endpoint = withTrailingSlash(input.getString("endpoint"));
+        String uploadToken = input.getString("upload-token");
+        String publicKey = input.getString("public-key");
+
+        Log.i("worker", "endoint " + endpoint +
+                "; upload token " + uploadToken.length() +
+                " chars; public key " + publicKey.length() + " chars");
+
         try {
             setForegroundAsync(createForegroundInfo(uris.size(), 0, false));
-            processMany(uris);
+            processMany(uris, endpoint, uploadToken, publicKey);
             setForegroundAsync(createForegroundInfo(uris.size(), uris.size(), true));
             return Result.success();
         } catch (Exception e) {
@@ -73,7 +82,7 @@ public class UploadWorker extends Worker {
         }
     }
 
-    public void processMany(ArrayList<Uri> uris) throws InvalidAlgorithmParameterException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeySpecException, ShortBufferException {
+    public void processMany(ArrayList<Uri> uris, String endpoint, String uploadToken, String publicKey) throws InvalidAlgorithmParameterException, InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IOException, BadPaddingException, IllegalBlockSizeException, InvalidKeySpecException, ShortBufferException {
         Log.i("worker", "got " + uris.size() + " URI(s)");
         final int bufferSize = 1 << 20;
         final int tagSize = 16;
@@ -85,7 +94,7 @@ public class UploadWorker extends Worker {
         datoms.add(new Datom(-1, "batch/size", Long.toString(uris.size())));
         datoms.add(new Datom(-1, "batch/uploaded-at", Long.toString(System.currentTimeMillis() / 1000)));
 
-        URL url = new URL("http://10.0.0.20:4711/api/blob");
+        URL url = new URL(endpoint + "blob");
 
         for (int uriIndex = 0; uriIndex < uris.size(); uriIndex++) {
             Uri uri = uris.get(uriIndex);
@@ -98,7 +107,7 @@ public class UploadWorker extends Worker {
 
             Cipher cipher = Cipher.getInstance("AES_256/GCM/NoPadding");
 
-            byte[] encryptedKey = encryptKey(publicKeyString, encryptionKey.getEncoded());
+            byte[] encryptedKey = encryptKey(publicKey, encryptionKey.getEncoded());
             final long chunks = getChunks(chunkPayloadSize, size);
 
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -107,6 +116,7 @@ public class UploadWorker extends Worker {
                 connection.setDoOutput(true);
                 connection.setChunkedStreamingMode(0);
                 connection.setRequestProperty("Content-Type", "application/octet-stream");
+                connection.setRequestProperty("Token", uploadToken);
                 OutputStream out = connection.getOutputStream();
 
                 out.write(encryptedKey);
@@ -154,15 +164,16 @@ public class UploadWorker extends Worker {
             }
         }
 
-        postDatoms("http://10.0.0.20:4711/api/datoms", datoms);
+        postDatoms(endpoint + "datoms", uploadToken, datoms);
     }
 
-    public static void postDatoms(String endpoint, Datoms datoms) throws IOException {
+    public static void postDatoms(String endpoint, String uploadToken, Datoms datoms) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
         try {
             connection.setDoOutput(true);
             connection.setChunkedStreamingMode(0);
             connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("Token", uploadToken);
             PrintWriter out = new PrintWriter(connection.getOutputStream());
             datoms.write(out);
             out.flush();
@@ -180,6 +191,14 @@ public class UploadWorker extends Worker {
         } finally {
             connection.disconnect();
         }
+    }
+
+    public static String withTrailingSlash(String url) {
+        if (url.endsWith("/")) {
+            return url;
+        }
+
+        return url + "/";
     }
 
     public static long getChunks(int chunkPayloadSize, long size) {
