@@ -9,6 +9,9 @@
            [javax.crypto.spec SecretKeySpec]
            [java.time LocalDateTime ZoneOffset]))
 
+(def ^:dynamic *endpoint* "")
+(def ^:dynamic *download-token* "")
+
 (def rsa-key-size-bits 4096)
 (def rsa-key-size-bytes (bit-shift-right rsa-key-size-bits 3))
 (def block-size (bit-shift-left 1 20))
@@ -113,29 +116,52 @@
   (let [[value unit] (format-size size)]
     (format " %6s %-3s  %s" value unit file-name)))
 
-(defn retrieve-entities [endpoint download-token params]
+(defn retrieve-entities [params]
   ((:body
-     (http/get (str endpoint "/entities")
+     (http/get (str *endpoint* "/entities")
                {:accept :json
                 :as :json-string-keys
                 :query-params params})) "entities"))
 
-(defn list-batches [endpoint download-token]
-  (retrieve-entities endpoint download-token {:a "batch/size"}))
+(defn list-batches []
+  (retrieve-entities {:a "batch/size"}))
 
-(defn list-files [endpoint download-token batch-id]
-  (retrieve-entities endpoint download-token {:a "file/batch-id" :v batch-id}))
+(defn list-files [batch-id]
+  (retrieve-entities {:a "file/batch-id" :v batch-id}))
+
+(defn cli-list-batches []
+  (doseq [batch (map (comp format-batch parse-batch) (list-batches))]
+    (println batch)))
+
+(defn cli-show-batch [id]
+  (doseq [file (map (comp format-file parse-file) (list-files id))]
+    (println file)))
+
+(defn printerrln [& args]
+  (binding [*out* *err*]
+    (apply println args)))
+
+(defn usage []
+  (printerrln "Usage: ... batch list")
+  (printerrln "       ... batch show BATCH-ID")
+  (printerrln "       ... batch download BATCH-ID"))
+
+(defn -main [& args]
+  (binding [*endpoint* "http://localhost:4711/api"]
+    (if-not args
+      (usage)
+      (let [[command & args] args]
+        (case command
+          "batch" (let [[subcommand & args] args]
+                    (case subcommand
+                      "list" (cli-list-batches)
+                      "show" (cli-show-batch (first args))
+                      (usage)))
+          (usage))))))
+
 
 (comment
-  (map
-    (comp format-batch parse-batch)
-    (list-batches "http://localhost:4711/api" ""))
-
-  (map
-    (comp format-file parse-file)
-    (list-files "http://localhost:4711/api" "" "MMewDSGfkK2")))
-
-(defn -main []
-  (with-open [in (input-stream "/tmp/securedrop-4205285819672884081.tmp")
-              out (output-stream "/tmp/a.jpg")]
-    (decrypt-stream (decode-secret-key test-secret-key) in out)))
+  (defn -main []
+    (with-open [in (input-stream "/tmp/securedrop-4205285819672884081.tmp")
+                out (output-stream "/tmp/a.jpg")]
+      (decrypt-stream (decode-secret-key test-secret-key) in out))))
