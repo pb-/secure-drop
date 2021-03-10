@@ -44,6 +44,9 @@
   (POST "/api/datoms" []
         (wrap-db-connection
           (wrap-require-token datoms/create upload-token) database-spec))
+  (GET "/api/entity/:id" [id]
+       (wrap-db-connection
+         (wrap-require-token entities/retrieve-one download-token) database-spec))
   (GET "/api/entities" []
        (wrap-db-connection
          (wrap-require-token entities/retrieve download-token) database-spec))
