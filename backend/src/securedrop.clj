@@ -9,7 +9,7 @@
             [blob])
   (:import [java.io File]))
 
-(def data-directory (System/getenv "DATA_PATH"))
+(def data-directory (or (System/getenv "DATA_PATH") "/data"))
 (def upload-token (System/getenv "UPLOAD_TOKEN"))
 (def download-token (System/getenv "DOWNLOAD_TOKEN"))
 (def database-spec
@@ -53,8 +53,12 @@
   (not-found "not here"))
 
 (defn -main []
-  ;; TODO check that data dir is not nil, make subdir, etc.
-  )
+  (if-not (and (System/getenv "UPLOAD_TOKEN")
+               (System/getenv "DOWNLOAD_TOKEN"))
+    (binding [*out* *err*]
+      (println "both UPLOAD_TOKEN and DOWNLOAD_TOKEN must be set")
+      (System/exit -1))
+    (run-jetty handler {:port 8080})))
 
 (comment
   ; For development use with nrepl

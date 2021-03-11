@@ -1,6 +1,6 @@
 (ns blob
   (:require [compojure.route :refer [not-found]]
-            [clojure.java.io :refer [input-stream output-stream]])
+            [clojure.java.io :refer [input-stream output-stream make-parents]])
   (:import [java.io File]
            [java.nio.file Paths Files CopyOption FileAlreadyExistsException]
            [java.security MessageDigest]))
@@ -32,6 +32,7 @@
     (let [sha-1-sum (.digest sha-1)
           blob-id (bytea->hex sha-1-sum)
           path (File. (blob-path (:data-directory request) blob-id))]
+      (make-parents path)
       (move-or-remove (.toPath file) (.toPath path))
       {:status 201
        :headers {"Content-type" "text/plain"}
