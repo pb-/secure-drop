@@ -20,7 +20,7 @@
                        [(str "SELECT entity FROM datoms "
                              "WHERE true" where-sql " "
                              "GROUP BY entity "
-                             "ORDER BY time DESC, rowid LIMIT 10")]
+                             "ORDER BY time DESC, rowid")]
                        where-data)))))
 
 (defn ^:private params->conditions [params]
