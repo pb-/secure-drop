@@ -1,0 +1,11 @@
+<svg width="128" height="128" viewBox="-40 -30 160 160" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(0, 50) scale(0.5 0.5) rotate(65 50 50)">
+    <path d="M120,0a300,300,0,0,1,0,100h-120a300,300,0,0,1,0,-100" />
+    <path d="M25,10l0,-40a35,35,0,0,1,70,0l0,40" fill="none" stroke="black" stroke-width="20" />
+  </g>
+  <g transform="translate(15, -10)" fill="none" stroke="black" stroke-width="6" stroke-linecap="round">
+    <path d="M0,0l0,35" />
+    <path d="M25,-10l0,35" />
+    <path d="M55,-5l0,35" />
+  </g>
+</svg>

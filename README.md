@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.svg" />
+</p>
+
 # Secure Drop
 
 Extract files from your Android phone, encrypted with a public key.
