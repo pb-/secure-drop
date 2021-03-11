@@ -67,7 +67,7 @@ public class UploadWorker extends Worker {
         String uploadToken = input.getString("upload-token");
         String publicKey = input.getString("public-key");
 
-        Log.i("worker", "endoint " + endpoint +
+        Log.i("worker", "endpoint " + endpoint +
                 "; upload token " + uploadToken.length() +
                 " chars; public key " + publicKey.length() + " chars");
 
