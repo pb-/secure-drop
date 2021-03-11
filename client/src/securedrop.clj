@@ -7,7 +7,7 @@
            [javax.crypto Cipher]
            [javax.crypto.spec GCMParameterSpec]
            [javax.crypto.spec SecretKeySpec]
-           [java.time LocalDateTime ZoneOffset]))
+           [java.time LocalDateTime ZoneId Instant]))
 
 (def ^:dynamic *endpoint* "")
 (def ^:dynamic *download-token* "")
@@ -98,8 +98,10 @@
 (defn parse-batch [[id attrs]]
   {:id id
    :size (Integer/parseInt (attrs "batch/size"))
-   :uploaded-at (LocalDateTime/ofEpochSecond
-                  (parse-long (attrs "batch/uploaded-at") 0) 0 ZoneOffset/UTC)})
+   :uploaded-at (LocalDateTime/ofInstant
+                  (Instant/ofEpochSecond (parse-long
+                                           (attrs "batch/uploaded-at") 0))
+                  (ZoneId/systemDefault))})
 
 (defn parse-file [[id attrs]]
   {:id id
