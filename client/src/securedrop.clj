@@ -1,5 +1,7 @@
 (ns securedrop
-  (:require [clojure.java.io :refer [input-stream output-stream copy]]
+  (:require [clojure.java.io :refer [input-stream output-stream copy make-parents]]
+            [clojure.java.shell :as shell]
+            [clojure.string :refer [trim]]
             [clj-http.client :as http])
   (:import [java.util Base64]
            [java.security KeyFactory]
@@ -8,7 +10,7 @@
            [javax.crypto.spec GCMParameterSpec]
            [javax.crypto.spec SecretKeySpec]
            [java.time LocalDateTime ZoneId Instant]
-           [java.io ByteArrayOutputStream]))
+           [java.io ByteArrayOutputStream File IOException File]))
 
 (def ^:dynamic *endpoint* "")
 (def ^:dynamic *download-token* "")
@@ -124,6 +126,7 @@
      (http/get (str *endpoint* "/entities")
                {:accept :json
                 :as :json-string-keys
+                :headers {"Token" *download-token*}
                 :query-params params})) "entities"))
 
 (defn printerrln [& args]
@@ -132,7 +135,8 @@
 
 (defn retrieve-file [{:keys [blob-id file-name]}]
   (let [response (http/get (str *endpoint* "/blob/" blob-id)
-                           {:as :stream})]
+                           {:headers {"Token" *download-token*}
+                            :as :stream})]
     (if (= (:status response) 200)
       (with-open [out (output-stream file-name)]
         (println "downloading " file-name)
@@ -158,22 +162,60 @@
 (defn cli-download-batch [id]
   (dorun (map (comp retrieve-file parse-file) (list-files id))))
 
+(defn join-path [& parts]
+  (apply str (interpose File/separatorChar parts)))
+
+(defn load-config-value [path prompt]
+  (try
+    (trim (slurp path))
+    (catch IOException _
+      (print (str prompt ": "))
+      (flush)
+      (spit path (read-line))
+      (load-config-value path prompt))))
+
+(defn get-secret-key-file [path]
+  (if-not (.exists (File. path))
+    (do
+      (println "No secret key found, generating a new one")
+      (let [result (shell/sh "openssl" "genrsa" "4096" :out-enc :bytes)
+            result (shell/sh
+                     "openssl" "pkcs8" "-topk8"
+                     "-outform" "DER" "-nocrypt" "-out" path
+                     :in (:out result))]
+        path))
+    path))
+
+(defn load-config []
+  (let [config-path (join-path (System/getenv "HOME") ".config" "secure-drop")]
+    (make-parents (join-path config-path "dummy"))
+    {:secret-key-file (get-secret-key-file
+                        (join-path config-path "private-key"))
+     :endpoint (load-config-value
+                 (join-path config-path "endpoint")
+                 "API endpoint (usually ends in /api)")
+     :download-token (load-config-value
+                       (join-path config-path "download-token")
+                       "Your download token")}))
+
 (defn usage []
   (printerrln "Usage: ... batch list")
   (printerrln "       ... batch show BATCH-ID")
   (printerrln "       ... batch download BATCH-ID"))
 
 (defn -main [& args]
-  (binding [*endpoint* "http://localhost:4711/api"
-            *secret-key-file* "/home/pb/.config/secure-drop/private-key"]
-    (if-not args
-      (usage)
-      (let [[command & args] args]
-        (case command
-          "batch" (let [[subcommand & args] args]
-                    (case subcommand
-                      "list" (cli-list-batches)
-                      "show" (cli-show-batch (first args))
-                      "download" (cli-download-batch (first args))
-                      (usage)))
-          (usage))))))
+  (let [config (load-config)]
+    (binding [*endpoint* (:endpoint config)
+              *secret-key-file* (:secret-key-file config)
+              *download-token* (:download-token config)]
+      (if args
+        (let [[command & args] args]
+          (case command
+            "batch" (let [[subcommand & args] args]
+                      (case subcommand
+                        "list" (cli-list-batches)
+                        "show" (cli-show-batch (first args))
+                        "download" (cli-download-batch (first args))
+                        (usage)))
+            (usage)))
+        (usage)))))
