@@ -4,4 +4,5 @@
     <string name="add_new_drop_zone">Add new drop zone</string>
     <string name="title_activity_drop_zone_settings">Drop zones</string>
     <string name="a_drop_zone">A drop zone</string>
+    <string name="usage_hint_text">Share files to Secure Drop to initiate a drop!</string>
 </resources>
