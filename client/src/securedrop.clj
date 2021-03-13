@@ -10,7 +10,7 @@
            [javax.crypto.spec GCMParameterSpec]
            [javax.crypto.spec SecretKeySpec]
            [java.time LocalDateTime ZoneId Instant]
-           [java.io ByteArrayOutputStream File IOException File]))
+           [java.io ByteArrayOutputStream File IOException]))
 
 (def ^:dynamic *endpoint* "")
 (def ^:dynamic *download-token* "")
