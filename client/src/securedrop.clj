@@ -1,4 +1,5 @@
 (ns securedrop
+  (:gen-class)
   (:require [clojure.java.io :refer [input-stream output-stream copy make-parents]]
             [clojure.java.shell :as shell]
             [clojure.string :refer [trim]]

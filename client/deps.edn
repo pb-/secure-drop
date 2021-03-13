@@ -2,12 +2,11 @@
  {org.clojure/clojure {:mvn/version "1.10.2"}
   clj-http/clj-http {:mvn/version "3.12.0"}
   cheshire/cheshire {:mvn/version "5.10.0"}}
- :paths ["src"]
+ :paths ["src" "classes"]
  :aliases {:nrepl
            {:extra-deps
             {cider/cider-nrepl {:mvn/version "0.25.5"}}
             :main-opts ["-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"]}
            :uberdeps
-           {:replace-deps {uberdeps/uberdeps {:mvn/version "1.0.4"}}
-            :replace-paths []
+           {:extra-deps {uberdeps/uberdeps {:mvn/version "1.0.4"}}
             :main-opts ["-m" "uberdeps.uberjar"]}}}
