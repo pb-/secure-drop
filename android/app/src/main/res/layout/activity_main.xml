@@ -10,6 +10,7 @@
         android:id="@+id/usage_hint"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:lineSpacingExtra="4sp"
         android:text="@string/usage_hint_text"
         android:textAlignment="center"
         android:textSize="18sp"
