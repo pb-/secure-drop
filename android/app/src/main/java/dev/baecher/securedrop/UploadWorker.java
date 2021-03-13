@@ -76,8 +76,29 @@ public class UploadWorker extends Worker {
             processMany(uris, endpoint, uploadToken, publicKey);
             setForegroundAsync(createForegroundInfo(uris.size(), uris.size(), true));
             return Result.success();
-        } catch (Exception e) {
+        } catch (final Exception e) {
             e.printStackTrace();
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    NotificationManager m = getApplicationContext().getSystemService(NotificationManager.class);
+                    m.cancel(0);
+                    try {
+                        Thread.sleep(250);
+                    } catch (InterruptedException ex) {
+                        ex.printStackTrace();
+                    }
+                    String message = String.format("Drop failed—%s (%s)", e.getMessage(), e.getClass().getSimpleName());
+                    m.notify(0, new NotificationCompat.Builder(getApplicationContext(), notificationChannelId)
+                            .setOngoing(false)
+                            .setAutoCancel(true)
+                            .setContentTitle("Secure Drop")
+                            .setContentText(message)
+                            .setStyle(new NotificationCompat.BigTextStyle().bigText(message))
+                            .setSmallIcon(R.drawable.ic_logo)
+                            .build());
+                }
+            }).start();
             return Result.failure();
         }
     }
@@ -252,7 +273,7 @@ public class UploadWorker extends Worker {
         Notification notification = new NotificationCompat.Builder(context, notificationChannelId)
                 .setContentTitle("Secure Drop")
                 .setContentText((done ? "Uploaded " : "Uploading ") + (totalFiles > 1 ? (totalFiles + " files") : "one file"))
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(R.drawable.ic_logo)
                 .setProgress(totalFiles, done ? 0 : completedFiles, false)
                 .setOngoing(!done)
                 .build();
