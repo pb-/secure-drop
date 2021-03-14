@@ -3,8 +3,8 @@ nrepl:
 .PHONY: nrepl
 
 client: jar
-	cat scripts/stub.sh target/client.jar > target/client
-	chmod a+x target/client
+	cat scripts/stub.sh target/client.jar > target/sdc
+	chmod a+x target/sdc
 .PHONY: client
 
 jar:
